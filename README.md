@@ -47,14 +47,15 @@ Team of **5 members** are required to:
 .
 ├── src/
 │    ├── openmp/
-│    │ ├── task1_openmp.cpp
+│    │ ├── openmp_implementation.cpp
 │    │ └── ...
 │    ├── mpi/
-│    │ ├── task1_mpi.cpp
+│    │ ├── mpi_implementation.cpp
 │    │ └── ...
-│    └─── sequential/
-│      ├── task1_sequential.cpp
-│      └── ...
+│    ├── sequential/
+│    │ ├── sequential_implementation.cpp
+│    │ └── ...
+│    └── common_utilities.cpp
 ├── images/
 │ └── (input images / data samples used in testing)
 ├── report/
