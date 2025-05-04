@@ -43,7 +43,8 @@ Team of **5 members** are required to:
 > Implement a **dynamic kernel filter size** instead of a fixed 3x3 size (for filter-based tasks).
 
 ## 🗂 Repository Structure
-📦 CSE455-Parallel-Programming
+```
+.
 ├── src/
 │    ├── openmp/
 │    │ ├── task1_openmp.cpp
@@ -54,9 +55,10 @@ Team of **5 members** are required to:
 │    └─── sequential/
 │      ├── task1_sequential.cpp
 │      └── ...
-├── datasets/
+├── images/
 │ └── (input images / data samples used in testing)
 ├── report/
 │ ├── report.pdf
 │ └── screenshots/
 └── README.md
+```
