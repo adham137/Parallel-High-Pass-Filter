@@ -1,0 +1,13 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="16.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <CustomBuild Include="E:\Downloads\Semester 10\HPC\Parallel-High-Pass-Filter\build\CMakeFiles\3fa86785f1a8e827f262d8b63aa8ab75\generate.stamp.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="CMake Rules">
+      <UniqueIdentifier>{748490B1-2789-3C13-84C2-23B39654547D}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

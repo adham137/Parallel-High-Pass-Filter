@@ -1,0 +1,10 @@
+^E:\DOWNLOADS\SEMESTER 10\HPC\PARALLEL-HIGH-PASS-FILTER\CMAKELISTS.TXT
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" "-SE:/Downloads/Semester 10/HPC/Parallel-High-Pass-Filter" "-BE:/Downloads/Semester 10/HPC/Parallel-High-Pass-Filter/build" --check-stamp-file "E:/Downloads/Semester 10/HPC/Parallel-High-Pass-Filter/build/CMakeFiles/generate.stamp"
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd

@@ -1,0 +1,16 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="16.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="E:\Downloads\Semester 10\HPC\Parallel-High-Pass-Filter\src\sequential\sequential_implementation.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="E:\Downloads\Semester 10\HPC\Parallel-High-Pass-Filter\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{FD76B910-9EE4-3497-82C8-74969E2E23FA}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>
