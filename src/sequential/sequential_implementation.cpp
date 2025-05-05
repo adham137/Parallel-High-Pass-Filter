@@ -109,16 +109,6 @@
 
 //-----------------------------------------------------------------------------------------------------------------------------------
 // Dynamic kernel size implementation
-#include <opencv2/opencv.hpp>
-#include <iostream>
-#include <filesystem>
-#include <stdexcept>
-
-namespace fs = std::filesystem;
-using std::cout;
-using std::cerr;
-using std::endl;
-using std::string;
 
 #include <opencv2/opencv.hpp>
 #include <iostream>
@@ -142,7 +132,7 @@ int main() {
     const string outDir  = baseDir + "images/output";
 
     // Set kernel size 
-    const int kernel_size = 9; 
+    const int kernel_size = 3; 
 
     cout << "CWD:       " << fs::current_path() << "\n";
     cout << "Input dir: " << fs::absolute(inDir) << "\n";
