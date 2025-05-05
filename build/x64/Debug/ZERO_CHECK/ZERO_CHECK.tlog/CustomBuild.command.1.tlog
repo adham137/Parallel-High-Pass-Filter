@@ -1,0 +1,10 @@
+^D:\SEMESTER 10\HPC\PARALLEL-HIGH-PASS-FILTER\BUILD\CMAKEFILES\2530705D834FD0A7DC7E16B957325488\GENERATE.STAMP.RULE
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" "-SD:/Semester 10/HPC/Parallel-High-Pass-Filter" "-BD:/Semester 10/HPC/Parallel-High-Pass-Filter/build" --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file "D:/Semester 10/HPC/Parallel-High-Pass-Filter/build/Parallel-High-Pass-Filter.sln"
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
