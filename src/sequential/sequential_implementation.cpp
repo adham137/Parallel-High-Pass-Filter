@@ -8,8 +8,43 @@
 namespace fs = std::filesystem;
 
 // Manual convolution function
+// cv::Mat applyHighPassFilter(const cv::Mat& inputImage, int kernelSize = 3) {
+//     // Validate input
+//     if (inputImage.empty()) {
+//         std::cerr << "Error: Empty input image." << std::endl;
+//         return cv::Mat();
+//     }
+
+//     // Force kernel size to be odd and >= 3
+//     if (kernelSize < 3 || kernelSize % 2 == 0) {
+//         kernelSize = 3;
+//         std::cerr << "Invalid kernel size. Using default 3x3." << std::endl;
+//     }
+
+//     // Create kernel
+//     cv::Mat kernel;
+//     if (kernelSize == 3) {
+//         // Use standard high-pass kernel
+//         kernel = (cv::Mat_<float>(3,3) << 
+//             0, -1,  0,
+//            -1,  4, -1,
+//             0, -1,  0);
+//     } else {
+//         // Create dynamic kernel
+//         kernel = cv::Mat::ones(kernelSize, kernelSize, CV_32F) * -1;
+//         int center = kernelSize / 2;
+//         kernel.at<float>(center, center) = kernelSize * kernelSize - 1;
+//     }
+
+//     // Display kernel
+//     std::cout << "Using " << kernelSize << "x" << kernelSize << " kernel:\n";
+//     for (int i = 0; i < kernel.rows; i++) {
+//         for (int j = 0; j < kernel.cols; j++) {
+//             std::cout << kernel.at<float>(i, j) << "\t";
+//         }
+//         std::cout << "\n";
+//     }
 cv::Mat applyHighPassFilter(const cv::Mat& inputImage, int kernelSize = 3) {
-    // Validate input
     if (inputImage.empty()) {
         std::cerr << "Error: Empty input image." << std::endl;
         return cv::Mat();
@@ -21,21 +56,20 @@ cv::Mat applyHighPassFilter(const cv::Mat& inputImage, int kernelSize = 3) {
         std::cerr << "Invalid kernel size. Using default 3x3." << std::endl;
     }
 
-    // Create kernel
+    // Create kernel using your original logic for ALL sizes
     cv::Mat kernel;
     if (kernelSize == 3) {
-        // Use standard high-pass kernel
-        kernel = (cv::Mat_<float>(3,3) << 
+        // Your original 3x3 kernel (normalized Laplacian)
+        kernel = (cv::Mat_<float>(3, 3) << 
             0, -1,  0,
-           -1,  4, -1,
+           -1,  4, -1,  // Note: 4 instead of 8 (normalized)
             0, -1,  0);
     } else {
-        // Create dynamic kernel
+        // Dynamic kernel for larger sizes (N²-1 center)
         kernel = cv::Mat::ones(kernelSize, kernelSize, CV_32F) * -1;
         int center = kernelSize / 2;
         kernel.at<float>(center, center) = kernelSize * kernelSize - 1;
     }
-
     // Display kernel
     std::cout << "Using " << kernelSize << "x" << kernelSize << " kernel:\n";
     for (int i = 0; i < kernel.rows; i++) {
