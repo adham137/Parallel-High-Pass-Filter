@@ -3,18 +3,23 @@
 #include <opencv2/highgui.hpp>
 #include <mpi.h>
 #include <iostream>
+#include <cassert>
 using namespace std;
 
 
-vector<int> initialize_kernel(int kernel_size);     // initializes a kernel of dynamic size
-vector<uchar> matrix_to_bytes(cv::Mat matrix);      // convert matrix type to vector of bytes to be able to send it
-void bytes_to_matrix(uchar*, vector<uchar> bytes, int kernel_radius, int cols); // copy the bytes array into the center of the matrix
+template<typename T>
+constexpr const T& my_clamp(const T& v, const T& lo, const T& hi) {
+    return (v < lo) ? lo : (hi < v) ? hi : v;
+}
+
+cv::Mat initializeKernelMat(int kernel_size);                         // initializes a kernel of dynamic size
+cv::Mat applyConvolution(const cv::Mat& src, const cv::Mat& kernel);       // convolve the src mtx with the filter
 
 int main(int argc, char* argv[])
 {
     string abs_input_img_path = "D:/ASU/sem 10/HPC/Parallel_High_Pass_Filter/images/input/lena.png";
     string abs_output_img_path = "D:/ASU/sem 10/HPC/Parallel_High_Pass_Filter/images/output";
-    int kernel_size = 3;
+    int kernel_size = 31;
 
     MPI_Init(&argc, &argv);
     int size, rank;
@@ -40,7 +45,7 @@ int main(int argc, char* argv[])
     MPI_Bcast(&cols, 1, MPI_INT, 0, MPI_COMM_WORLD);
     
     // all processes initialize the kernel
-    vector<int> kernel = initialize_kernel(kernel_size);
+    cv::Mat kernel = initializeKernelMat(kernel_size);
     int kernel_radius = (kernel_size - 1) / 2;
 
     // root process prepares for distribtuting image rows
@@ -74,50 +79,105 @@ int main(int argc, char* argv[])
                                         cols,                               
                                         CV_8UC1);
 
-    // root process scatters the image row wise
-
-    // vector<uchar> global_data;
-    // vector<uchar> local_data (n_local_rows*rows);
-    // if(rank==0){
-    //     global_data = matrix_to_bytes(image); 
-    // }
-    // MPI_Scatterv(   global_data.data(), send_counts.data(), displacements.data(), MPI_UNSIGNED_CHAR,
-    //                 local_data.data(), n_local_rows*rows, MPI_UNSIGNED_CHAR,
-    //                 0, MPI_COMM_WORLD);
-    //cout <<"Rank (" << rank << "), local data vector is of size: ("<< (local_data.size()) <<"). "<< "First 5 elements casted as int: " << (int)local_data[0] << ", " << (int)local_data[1] << ", " << (int)local_data[2] << ", " << (int)local_data[3] << ", " << (int)local_data[4] <<endl;
-
+    // root process scatters  the image rows,
+    // NB: the local_image receives the rows at it's center, leaving the buffer rows blank                                    
     MPI_Scatterv(   image.data, send_counts.data(), displacements.data(), MPI_UNSIGNED_CHAR,
                     local_img.ptr(kernel_radius), n_local_rows*rows, MPI_UNSIGNED_CHAR,
                     0, MPI_COMM_WORLD);
-    // if(rank == 0){
-    //     cv::imshow("local image of rank 0", local_img);
-    //     cv::waitKey(0);
+    if(rank == 1){
+        cv::imshow("local of rank 1 before communication", local_img);
+        cv::waitKey(0);
 
-    // }
+    }
 
-
-
-
-    // // fillout the inner part of the local_img
-    // bytes_to_matrix(local_img.data, local_data, kernel_radius, cols);
     
     // get buffer rows from rank above and below you (respectin the image boundries) 
     int prev_rank = rank -1 , next_rank = rank + 1;
+    int top_row_index = kernel_radius;
+    int bottom_row_index = n_local_rows;
+    int elements_to_send_count = kernel_radius*cols;
+    if(prev_rank >= 0){
+        MPI_Sendrecv( local_img.ptr(top_row_index), elements_to_send_count, MPI_UNSIGNED_CHAR, prev_rank, 0,
+                      local_img.ptr(0), elements_to_send_count, MPI_UNSIGNED_CHAR, prev_rank, 0,
+                      MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                    
+    }
+    if(next_rank < size){
+        MPI_Sendrecv( local_img.ptr(bottom_row_index), elements_to_send_count, MPI_UNSIGNED_CHAR, next_rank, 0,
+                      local_img.ptr(top_row_index+n_local_rows), elements_to_send_count, MPI_UNSIGNED_CHAR, next_rank, 0,
+                      MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    }
+    MPI_Barrier(MPI_COMM_WORLD);
+    if(rank == 1){
+        cv::imshow("local of rank 1 after communication", local_img);
+        cv::waitKey(0);
+    }
 
+    // apply convulution
+    cv::Mat local_res = applyConvolution(local_img, kernel);
+    if(rank == 1){
+        cv::imshow("local of rank 1 after convultion", local_res);
+        cv::waitKey(0);
+    }
 
 
     MPI_Finalize();
     return 0;
     
 }                                         
-vector<int> initialize_kernel(int kernel_size) {
-    vector<int> kernel = { 0, -1, 0,
-                          -1, 4, -1,
-                           0, -1, 0  };
 
+cv::Mat initializeKernelMat(int kernel_size) {
+    // assert(kernel_size == 3 && "This function only supports a 3×3 kernel");
+
+    
+    cv::Mat kernel = (cv::Mat_<int>(3, 3) <<
+         0, -1,  0,
+        -1,  4, -1,
+         0, -1,  0);
+
+    
     return kernel;
 }
 
-vector<uchar> matrix_to_bytes(cv::Mat matrix){
-    return vector<uchar>(matrix.datastart, matrix.dataend);
+cv::Mat applyConvolution(const cv::Mat& src, const cv::Mat& kernel) {
+    CV_Assert(src.type() == CV_8UC1);
+    CV_Assert(kernel.rows == kernel.cols && kernel.rows % 2 == 1);
+
+    int ksize = kernel.rows;
+    int kr    = ksize / 2;
+
+    // Original dimensions
+    int origRows = src.rows;
+    int origCols = src.cols;
+
+    // Output is smaller by 2*kr in each dim
+    int outRows = origRows - 2*kr;
+    int outCols = origCols - 2*kr;
+    cv::Mat dst(outRows, outCols, CV_8UC1);
+
+    for (int y = 0; y < outRows; ++y) {
+        for (int x = 0; x < outCols; ++x) {
+            float acc = 0.0f;
+
+            // Center of kernel at (y+kr, x+kr) in original image
+            for (int ky = -kr; ky <= kr; ++ky) {
+                for (int kx = -kr; kx <= kr; ++kx) {
+                    int yy = y + ky + kr;              // map to original coords
+                    int xx = x + kx + kr;
+
+                    // my_clamp against ORIGINAL image
+                    yy = my_clamp(yy, 0, origRows - 1);
+                    xx = my_clamp(xx, 0, origCols - 1);
+
+                    float kval = kernel.at<float>(ky + kr, kx + kr);
+                    uchar pix  = src.at<uchar>(yy, xx);
+                    acc += kval * pix;
+                }
+            }
+
+            dst.at<uchar>(y, x) = cv::saturate_cast<uchar>(acc);
+        }
+    }
+
+    return dst;
 }
