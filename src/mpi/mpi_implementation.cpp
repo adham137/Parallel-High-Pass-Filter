@@ -13,7 +13,7 @@ int main(int argc, char* argv[])
 {
     string abs_input_img_path = "D:/ASU/sem 10/HPC/Parallel_High_Pass_Filter/images/input/lena.png";
     string abs_output_img_path = "D:/ASU/sem 10/HPC/Parallel_High_Pass_Filter/images/output";
-    int kernel_size = 31;
+    int kernel_size = 3;
 
     MPI_Init(&argc, &argv);
     int size, rank;
@@ -106,16 +106,25 @@ int main(int argc, char* argv[])
         cv::imshow("local of rank 1 after communication", local_img);
         cv::waitKey(0);
     }
+    if(rank == 1) cout << "Rank (" << rank << "), output dimensions before padding: (" << local_img.rows << ", " << local_img.cols << ")" << endl;
 
-    // apply convulution
-
-    cv::Mat local_res; 
-    filter2D(local_img, local_res, -1, kernel, cv::Point(0,0), 0, cv::BORDER_CONSTANT);
+    // apply padding to the left and right of the image
+    cv::copyMakeBorder(local_img, local_img, 0, 0, kernel_radius, kernel_radius, cv::BORDER_CONSTANT);
     if(rank == 1){
-        cv::imshow("local of rank 1 after convultion", local_res);
+        cout << "Rank (" << rank << "), output dimensions after padding: (" << local_img.rows << ", " << local_img.cols << ")" << endl;
+        cv::imshow("local of rank 1 after padding", local_img);
         cv::waitKey(0);
     }
-    if(rank == 0) cout << "Rank (" << rank << "), output dimensions: (" << local_res.rows << ", " << local_res.cols << ")" << endl;
+    
+    // convolove the local image with the kernel
+    cv::filter2D(local_img, local_img, -1, kernel, cv::Point(0, 0), 0, cv::BORDER_DEFAULT);
+    if(rank == 1){
+        if(rank == 1) cout << "Rank (" << rank << "), output dimensions after convolution: (" << local_img.rows << ", " << local_img.cols << ")" << endl;
+        cv::imshow("local of rank 1 after convolution", local_img);
+        cv::waitKey(0);
+    }
+    // assert(local_img.rows == n_local_rows && local_img.cols == cols);
+    
 
 
     MPI_Finalize();
