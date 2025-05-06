@@ -7,13 +7,7 @@
 using namespace std;
 
 
-template<typename T>
-constexpr const T& my_clamp(const T& v, const T& lo, const T& hi) {
-    return (v < lo) ? lo : (hi < v) ? hi : v;
-}
-
 cv::Mat initializeKernelMat(int kernel_size);                         // initializes a kernel of dynamic size
-cv::Mat applyConvolution(const cv::Mat& src, const cv::Mat& kernel);       // convolve the src mtx with the filter
 
 int main(int argc, char* argv[])
 {
@@ -114,11 +108,14 @@ int main(int argc, char* argv[])
     }
 
     // apply convulution
-    cv::Mat local_res = applyConvolution(local_img, kernel);
+
+    cv::Mat local_res; 
+    filter2D(local_img, local_res, -1, kernel, cv::Point(0,0), 0, cv::BORDER_CONSTANT);
     if(rank == 1){
         cv::imshow("local of rank 1 after convultion", local_res);
         cv::waitKey(0);
     }
+    if(rank == 0) cout << "Rank (" << rank << "), output dimensions: (" << local_res.rows << ", " << local_res.cols << ")" << endl;
 
 
     MPI_Finalize();
@@ -139,45 +136,3 @@ cv::Mat initializeKernelMat(int kernel_size) {
     return kernel;
 }
 
-cv::Mat applyConvolution(const cv::Mat& src, const cv::Mat& kernel) {
-    CV_Assert(src.type() == CV_8UC1);
-    CV_Assert(kernel.rows == kernel.cols && kernel.rows % 2 == 1);
-
-    int ksize = kernel.rows;
-    int kr    = ksize / 2;
-
-    // Original dimensions
-    int origRows = src.rows;
-    int origCols = src.cols;
-
-    // Output is smaller by 2*kr in each dim
-    int outRows = origRows - 2*kr;
-    int outCols = origCols - 2*kr;
-    cv::Mat dst(outRows, outCols, CV_8UC1);
-
-    for (int y = 0; y < outRows; ++y) {
-        for (int x = 0; x < outCols; ++x) {
-            float acc = 0.0f;
-
-            // Center of kernel at (y+kr, x+kr) in original image
-            for (int ky = -kr; ky <= kr; ++ky) {
-                for (int kx = -kr; kx <= kr; ++kx) {
-                    int yy = y + ky + kr;              // map to original coords
-                    int xx = x + kx + kr;
-
-                    // my_clamp against ORIGINAL image
-                    yy = my_clamp(yy, 0, origRows - 1);
-                    xx = my_clamp(xx, 0, origCols - 1);
-
-                    float kval = kernel.at<float>(ky + kr, kx + kr);
-                    uchar pix  = src.at<uchar>(yy, xx);
-                    acc += kval * pix;
-                }
-            }
-
-            dst.at<uchar>(y, x) = cv::saturate_cast<uchar>(acc);
-        }
-    }
-
-    return dst;
-}
