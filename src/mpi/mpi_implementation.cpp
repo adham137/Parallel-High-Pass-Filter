@@ -46,7 +46,7 @@ int main(int argc, char* argv[])
                                 std::to_string(kernel_size) + 
                                 abs_input_img_path.extension().string());
 
-        cout << "Processing:\n" << "Kernel size: " << kernel_size << "\n" << "Input path: " << abs_input_img_path << "\n"<< "Output path: " << abs_output_img_path << endl;
+        // cout << "Processing:\n" << "Kernel size: " << kernel_size << "\n" << "Input path: " << abs_input_img_path << "\n"<< "Output path: " << abs_output_img_path << endl;
 
     } catch (const std::exception& e) {
         std::cerr << "Error: " << e.what() << std::endl;
@@ -63,7 +63,7 @@ int main(int argc, char* argv[])
     int rows, cols;
     if(rank==0){
         image = cv::imread(abs_input_img_path.string(), cv::IMREAD_GRAYSCALE);
-        cout << endl << "Number of Rows ("<<image.rows<<") , Number of Columns ("<<image.cols<<")" << endl;
+        // cout << endl << "Number of Rows ("<<image.rows<<") , Number of Columns ("<<image.cols<<")" << endl;
         rows = image.rows;
         cols = image.cols;
         if (image.empty()) {
@@ -104,7 +104,7 @@ int main(int argc, char* argv[])
                 &n_local_rows, 1, MPI_INT,
                 0, MPI_COMM_WORLD);
     n_local_rows /= rows;
-    cout<< "Rank (" << rank << "), recieves ("<< n_local_rows <<") rows." << endl ;
+    // cout<< "Rank (" << rank << "), recieves ("<< n_local_rows <<") rows." << endl ;
 
     // processes intialize local_img
     cv::Mat local_img = cv::Mat::zeros( n_local_rows + 2*kernel_radius,     // 1 buffer row + inner rows + 1 buffer row
@@ -116,11 +116,11 @@ int main(int argc, char* argv[])
     MPI_Scatterv(   image.data, send_counts.data(), displacements.data(), MPI_UNSIGNED_CHAR,
                     local_img.ptr(kernel_radius), n_local_rows*rows, MPI_UNSIGNED_CHAR,
                     0, MPI_COMM_WORLD);
-    if(rank == 1){
-        cv::imshow("local of rank 1 before communication", local_img);
-        cv::waitKey(0);
+    // if(rank == 1){
+    //     cv::imshow("local of rank 1 before communication", local_img);
+    //     cv::waitKey(0);
 
-    }
+    // }
 
     
     // get buffer rows from rank above and below you (respectin the image boundries) 
@@ -155,27 +155,28 @@ int main(int argc, char* argv[])
     // to make sure all processes communicated the buffer rows before proceeding
     MPI_Barrier(MPI_COMM_WORLD);
 
-    if(rank == 1){
-        cv::imshow("local of rank 1 after communication", local_img);
-        cv::waitKey(0);
-    }
-    if(rank == 1) cout << "Rank (" << rank << "), output dimensions before padding: (" << local_img.rows << ", " << local_img.cols << ")" << endl;
+    // if(rank == 1){
+    //     cout << "Rank (" << rank << "), output dimensions before padding: (" << local_img.rows << ", " << local_img.cols << ")" << endl;
+    //     cv::imshow("local of rank 1 after communication", local_img);
+    //     cv::waitKey(0);
+    // }
+
 
     // apply padding to the left and right of the image
     cv::copyMakeBorder(local_img, local_img, 0, 0, kernel_radius, kernel_radius, cv::BORDER_REPLICATE);
-    if(rank == 1){
-        cout << "Rank (" << rank << "), output dimensions after padding: (" << local_img.rows << ", " << local_img.cols << ")" << endl;
-        cv::imshow("local of rank 1 after padding", local_img);
-        cv::waitKey(0);
-    }
+    // if(rank == 1){
+    //     cout << "Rank (" << rank << "), output dimensions after padding: (" << local_img.rows << ", " << local_img.cols << ")" << endl;
+    //     cv::imshow("local of rank 1 after padding", local_img);
+    //     cv::waitKey(0);
+    // }
     
     // convolove the local image with the kernel
     local_img = convolve(local_img, kernel);
-    if(rank == 1){
-        cout << "Rank (" << rank << "), output dimensions after convolution: (" << local_img.rows << ", " << local_img.cols << ")" << endl;
-        cv::imshow("local of rank 1 after convolution", local_img);
-        cv::waitKey(0);
-    }
+    // if(rank == 1){
+    //     cout << "Rank (" << rank << "), output dimensions after convolution: (" << local_img.rows << ", " << local_img.cols << ")" << endl;
+    //     cv::imshow("local of rank 1 after convolution", local_img);
+    //     cv::waitKey(0);
+    // }
     // assert(local_img.rows == n_local_rows && local_img.cols == cols);
 
     // gather the local image back to the root process
@@ -185,8 +186,8 @@ int main(int argc, char* argv[])
     
     if(rank == 0){
         
-        cout << "Rank (" << rank << "), output dimensions of the final image: (" << image.rows << ", " << image.cols << ")" << endl;
-        cv::imshow("Final gathered image", image);
+        // cout << "Rank (" << rank << "), output dimensions of the final image: (" << image.rows << ", " << image.cols << ")" << endl;
+        // cv::imshow("Final gathered image", image);
         cv::waitKey(0);
         cv::imwrite(abs_output_img_path.string(), image);
     }
