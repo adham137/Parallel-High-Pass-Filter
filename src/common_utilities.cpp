@@ -133,89 +133,49 @@ cv::Mat createHighPassKernel(int size) {
 //     return paddedImage;
 // }
 
-/**
- * Replicates OpenCV's copyMakeBorder with BORDER_REPLICATE behavior
- * 
- * @param src The original input image
- * @param top Number of pixels to add to the top
- * @param bottom Number of pixels to add to the bottom
- * @param left Number of pixels to add to the left
- * @param right Number of pixels to add to the right
- * @return Padded image with replicated borders
- */
-cv::Mat replicatePadding(
-    const cv::Mat& src, 
-    int top, 
-    int bottom,
-    int left,
-    int right
-) {
-    if (src.empty()) {
-        std::cerr << "Error: Empty input image for padding." << std::endl;
+cv::Mat replicatePadding(const cv::Mat& input, int top, int bottom, int left, int right) {
+    if (input.empty()) {
         return cv::Mat();
     }
+
+    int paddedRows = input.rows + top + bottom;
+    int paddedCols = input.cols + left + right;
+    cv::Mat paddedImage = cv::Mat::zeros(paddedRows, paddedCols, input.type());
     
-    if (top < 0 || bottom < 0 || left < 0 || right < 0) {
-        std::cerr << "Error: Padding values must be non-negative." << std::endl;
-        return src.clone();
+    // Copy original image to center
+    for (int i = 0; i < input.rows; i++) {
+        for (int j = 0; j < input.cols; j++) {
+            paddedImage.at<cv::Vec3b>(i + top, j + left) = input.at<cv::Vec3b>(i, j);
+        }
     }
     
-    // Calculate dimensions
-    int srcRows = src.rows;
-    int srcCols = src.cols;
-    
-    // Calculate new dimensions
-    int dstRows = srcRows + top + bottom;
-    int dstCols = srcCols + left + right;
-    
-    // If no padding requested, return a copy of the original
-    if (dstRows == srcRows && dstCols == srcCols) {
-        return src.clone();
-    }
-    
-    // Create the padded image
-    cv::Mat dst = cv::Mat::zeros(dstRows, dstCols, src.type());
-    
-    // Copy the original image to the center of dst
-    src.copyTo(dst(cv::Rect(left, top, srcCols, srcRows)));
-    
-    // Replicate top edge
+    // Replicate top border
     for (int i = 0; i < top; i++) {
-        for (int j = 0; j < dstCols; j++) {
-            int srcCol = j - left;
-            
-            // Handle corners by clamping the source column
-            srcCol = std::max(0, std::min(srcCols - 1, srcCol));
-            
-            dst.at<cv::Vec3b>(i, j) = src.at<cv::Vec3b>(0, srcCol);
+        for (int j = left; j < paddedCols - right; j++) {
+            paddedImage.at<cv::Vec3b>(i, j) = paddedImage.at<cv::Vec3b>(top, j);
         }
     }
     
-    // Replicate bottom edge
-    for (int i = srcRows + top; i < dstRows; i++) {
-        for (int j = 0; j < dstCols; j++) {
-            int srcCol = j - left;
-            
-            // Handle corners by clamping the source column
-            srcCol = std::max(0, std::min(srcCols - 1, srcCol));
-            
-            dst.at<cv::Vec3b>(i, j) = src.at<cv::Vec3b>(srcRows - 1, srcCol);
+    // Replicate bottom border
+    for (int i = paddedRows - bottom; i < paddedRows; i++) {
+        for (int j = left; j < paddedCols - right; j++) {
+            paddedImage.at<cv::Vec3b>(i, j) = paddedImage.at<cv::Vec3b>(paddedRows - bottom - 1, j);
         }
     }
     
-    // Replicate left edge (excluding corners that were already handled)
-    for (int i = top; i < srcRows + top; i++) {
+    // Replicate left border
+    for (int i = 0; i < paddedRows; i++) {
         for (int j = 0; j < left; j++) {
-            dst.at<cv::Vec3b>(i, j) = src.at<cv::Vec3b>(i - top, 0);
+            paddedImage.at<cv::Vec3b>(i, j) = paddedImage.at<cv::Vec3b>(i, left);
         }
     }
     
-    // Replicate right edge (excluding corners that were already handled)
-    for (int i = top; i < srcRows + top; i++) {
-        for (int j = srcCols + left; j < dstCols; j++) {
-            dst.at<cv::Vec3b>(i, j) = src.at<cv::Vec3b>(i - top, srcCols - 1);
+    // Replicate right border
+    for (int i = 0; i < paddedRows; i++) {
+        for (int j = paddedCols - right; j < paddedCols; j++) {
+            paddedImage.at<cv::Vec3b>(i, j) = paddedImage.at<cv::Vec3b>(i, paddedCols - right - 1);
         }
     }
-    
-    return dst;
+
+    return paddedImage;
 }
