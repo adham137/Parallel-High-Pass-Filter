@@ -6,7 +6,7 @@
 #include <algorithm>
 #include <cassert>
 #include <filesystem>
-
+// #include <chronos>
 #include "../common_utilities.cpp"
 using namespace std;
 namespace fs = std::filesystem;
@@ -58,9 +58,15 @@ int main(int argc, char* argv[])
     MPI_Comm_size(MPI_COMM_WORLD, &size);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     
-    // root processes reads the image
+    // all processes initialize the kernel
+    cv::Mat kernel = createHighPassKernel(kernel_size);
+    int kernel_radius = (kernel_size - 1) / 2;
+    
+
+    // root processes reads the image and starts timer
     cv::Mat image;
     int rows, cols;
+    std::chrono::time_point<std::chrono::steady_clock> start, end;
     if(rank==0){
         image = cv::imread(abs_input_img_path.string(), cv::IMREAD_GRAYSCALE);
         // cout << endl << "Number of Rows ("<<image.rows<<") , Number of Columns ("<<image.cols<<")" << endl;
@@ -70,15 +76,13 @@ int main(int argc, char* argv[])
             MPI_Abort(MPI_COMM_WORLD, 1);
         }
         if(!image.isContinuous()) image = image.clone();    // make sure the image is stored continously
+        start = std::chrono::high_resolution_clock::now(); // start timeer
     }
 
     // root broadcasts the image dimensions
     MPI_Bcast(&rows, 1, MPI_INT, 0, MPI_COMM_WORLD);
     MPI_Bcast(&cols, 1, MPI_INT, 0, MPI_COMM_WORLD);
     
-    // all processes initialize the kernel
-    cv::Mat kernel = createHighPassKernel(kernel_size);
-    int kernel_radius = (kernel_size - 1) / 2;
 
     // root process prepares for distribtuting image rows
     vector<int> send_counts;
@@ -163,6 +167,9 @@ int main(int argc, char* argv[])
 
 
     // apply padding to the left and right of the image
+    // cv::Mat temp;
+    // temp = replicatePadding(local_img, 0, 0, kernel_radius, kernel_radius);
+    // local_img = temp.clone();
     cv::copyMakeBorder(local_img, local_img, 0, 0, kernel_radius, kernel_radius, cv::BORDER_REPLICATE);
     // if(rank == 1){
     //     cout << "Rank (" << rank << "), output dimensions after padding: (" << local_img.rows << ", " << local_img.cols << ")" << endl;
@@ -188,6 +195,9 @@ int main(int argc, char* argv[])
         
         // cout << "Rank (" << rank << "), output dimensions of the final image: (" << image.rows << ", " << image.cols << ")" << endl;
         // cv::imshow("Final gathered image", image);
+        end = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> duration = end - start;
+        cout << "****Time taken for parallel convultion: " << duration.count() << " seconds" << endl;
         cv::waitKey(0);
         cv::imwrite(abs_output_img_path.string(), image);
     }
