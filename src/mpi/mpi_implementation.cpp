@@ -5,19 +5,53 @@
 #include <iostream>
 #include <algorithm>
 #include <cassert>
+#include <filesystem>
+
+#include "../common_utilities.cpp"
 using namespace std;
+namespace fs = std::filesystem;
 
 
-cv::Mat initializeKernelMat(int kernel_size);                               // initializes a kernel of dynamic size
+// cv::Mat initializeKernelMat(int kernel_size);                               // initializes a kernel of dynamic size
 cv::Mat convolve(const cv::Mat& paddedSrc, const cv::Mat& kernel);          // performs convolution using custom functions
 cv::Mat validConvolution(const cv::Mat& src, const cv::Mat& kernel);        // performs convolution using opencv functions
 
+// run with: mpiexec -n 5 build\Debug\mpi_opencv_app.exe 3 images\input\lena.png
 int main(int argc, char* argv[])
 {
+    int kernel_size;
+    fs::path abs_input_img_path, abs_output_img_path;
 
-    int kernel_size = 3;
-    string abs_input_img_path = "D:/ASU/sem 10/HPC/Parallel_High_Pass_Filter/images/input/lena.png";
-    string abs_output_img_path = "D:/ASU/sem 10/HPC/Parallel_High_Pass_Filter/images/output/lena_MPI_3x3.png";
+    // take arguments from cli 
+    //  check for correct number of arguments
+    if (argc != 3) {
+        std::cerr << "Usage: " << argv[0] << " <kernel_size> <input_image_path>\n";
+        MPI_Abort(MPI_COMM_WORLD, 1);
+    }
+
+    try {
+        // parse arguments
+        kernel_size = std::stoi(argv[1]);
+        abs_input_img_path = argv[2];
+
+        // validate kernel size
+        if (kernel_size < 1 || kernel_size % 2 == 0) {
+            throw std::invalid_argument("Kernel size must be odd and positive");
+        }
+
+        // construct output path
+        abs_output_img_path = abs_input_img_path.parent_path().parent_path() / "output" /
+                                (abs_input_img_path.stem().string() + 
+                                "_MPI_" + std::to_string(kernel_size) + "x" + 
+                                std::to_string(kernel_size) + 
+                                abs_input_img_path.extension().string());
+
+        cout << "Processing:\n" << "Kernel size: " << kernel_size << "\n" << "Input path: " << abs_input_img_path << "\n"<< "Output path: " << abs_output_img_path << endl;
+
+    } catch (const std::exception& e) {
+        std::cerr << "Error: " << e.what() << std::endl;
+        MPI_Abort(MPI_COMM_WORLD, 1);
+    }
 
     MPI_Init(&argc, &argv);
     int size, rank;
@@ -28,7 +62,7 @@ int main(int argc, char* argv[])
     cv::Mat image;
     int rows, cols;
     if(rank==0){
-        image = cv::imread(abs_input_img_path, cv::IMREAD_GRAYSCALE);
+        image = cv::imread(abs_input_img_path.string(), cv::IMREAD_GRAYSCALE);
         cout << endl << "Number of Rows ("<<image.rows<<") , Number of Columns ("<<image.cols<<")" << endl;
         rows = image.rows;
         cols = image.cols;
@@ -43,7 +77,7 @@ int main(int argc, char* argv[])
     MPI_Bcast(&cols, 1, MPI_INT, 0, MPI_COMM_WORLD);
     
     // all processes initialize the kernel
-    cv::Mat kernel = initializeKernelMat(kernel_size);
+    cv::Mat kernel = createHighPassKernel(kernel_size);
     int kernel_radius = (kernel_size - 1) / 2;
 
     // root process prepares for distribtuting image rows
@@ -99,11 +133,23 @@ int main(int argc, char* argv[])
                       local_img.ptr(0), elements_to_send_count, MPI_UNSIGNED_CHAR, prev_rank, 0,
                       MPI_COMM_WORLD, MPI_STATUS_IGNORE);
                     
+    }else{ 
+        // if you are the first process, send the top buffer row to your self
+        MPI_Sendrecv( local_img.ptr(top_row_index), elements_to_send_count, MPI_UNSIGNED_CHAR, 0, 0,
+                      local_img.ptr(0), elements_to_send_count, MPI_UNSIGNED_CHAR, 0, 0,
+                      MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
     }
     if(next_rank < size){
         MPI_Sendrecv( local_img.ptr(bottom_row_index), elements_to_send_count, MPI_UNSIGNED_CHAR, next_rank, 0,
                       local_img.ptr(top_row_index+n_local_rows), elements_to_send_count, MPI_UNSIGNED_CHAR, next_rank, 0,
                       MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    }else{ 
+        // if you are the last process, send the bottom buffer row to your self
+        MPI_Sendrecv( local_img.ptr(bottom_row_index), elements_to_send_count, MPI_UNSIGNED_CHAR, size-1, 0,
+                      local_img.ptr(top_row_index+n_local_rows), elements_to_send_count, MPI_UNSIGNED_CHAR, size-1, 0,
+                      MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
     }
 
     // to make sure all processes communicated the buffer rows before proceeding
@@ -116,7 +162,7 @@ int main(int argc, char* argv[])
     if(rank == 1) cout << "Rank (" << rank << "), output dimensions before padding: (" << local_img.rows << ", " << local_img.cols << ")" << endl;
 
     // apply padding to the left and right of the image
-    cv::copyMakeBorder(local_img, local_img, 0, 0, kernel_radius, kernel_radius, cv::BORDER_CONSTANT);
+    cv::copyMakeBorder(local_img, local_img, 0, 0, kernel_radius, kernel_radius, cv::BORDER_REPLICATE);
     if(rank == 1){
         cout << "Rank (" << rank << "), output dimensions after padding: (" << local_img.rows << ", " << local_img.cols << ")" << endl;
         cv::imshow("local of rank 1 after padding", local_img);
@@ -138,10 +184,11 @@ int main(int argc, char* argv[])
                 0, MPI_COMM_WORLD);
     
     if(rank == 0){
+        
         cout << "Rank (" << rank << "), output dimensions of the final image: (" << image.rows << ", " << image.cols << ")" << endl;
         cv::imshow("Final gathered image", image);
         cv::waitKey(0);
-        cv::imwrite(abs_output_img_path, image);
+        cv::imwrite(abs_output_img_path.string(), image);
     }
     
 
@@ -155,14 +202,14 @@ int main(int argc, char* argv[])
 
 
 
-cv::Mat initializeKernelMat(int kernel_size) {
-    // assert(kernel_size == 3 && "This function only supports a 3×3 kernel");
-    return (cv::Mat_<float>(3,3) << 
-    0.0f, -1.0f,  0.0f,
-   -1.0f,  4.0f, -1.0f,
-    0.0f, -1.0f,  0.0f
-    );
-}
+// cv::Mat initializeKernelMat(int kernel_size) {
+//     // assert(kernel_size == 3 && "This function only supports a 3×3 kernel");
+//     return (cv::Mat_<float>(3,3) << 
+//     0.0f, -1.0f,  0.0f,
+//    -1.0f,  4.0f, -1.0f,
+//     0.0f, -1.0f,  0.0f
+//     );
+// }
 
 
 cv::Mat convolve(const cv::Mat& src, const cv::Mat& kernel) {
@@ -187,8 +234,6 @@ cv::Mat convolve(const cv::Mat& src, const cv::Mat& kernel) {
                 for (int kx = -kr; kx <= kr; ++kx) {
                     int yy = k_center_y + ky;
                     int xx = k_center_x + kx;
-                    // yy = std::clamp(yy, 0, H - 1);
-                    // xx = std::clamp(xx, 0, W - 1);
 
                     float kval = kernel.at<float>(ky + kr, kx + kr);
                     uchar pix  = src.at<uchar>(yy, xx);

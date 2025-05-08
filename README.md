@@ -63,3 +63,9 @@ Team of **5 members** are required to:
 │ └── screenshots/
 └── README.md
 ```
+
+## 🗂 How to run
+### MPI
+```
+mpiexec -n 5 build\Debug\mpi_opencv_app.exe 3 images\input\lena.png
+```

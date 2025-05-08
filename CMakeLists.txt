@@ -24,6 +24,7 @@ include_directories(
 )
 
 add_executable(mpi_opencv_app src/mpi/mpi_implementation.cpp)
+target_compile_features(mpi_opencv_app PRIVATE cxx_std_17)
 
 target_link_libraries(mpi_opencv_app
     ${OpenCV_LIBS}
