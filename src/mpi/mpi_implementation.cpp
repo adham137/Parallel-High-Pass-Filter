@@ -1,3 +1,4 @@
+// run command: mpiexec -n 10 build\Debug\mpi_opencv_app.exe 3 images\input\lena.png
 #include <opencv2/opencv.hpp>
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/highgui.hpp>
@@ -7,7 +8,7 @@
 #include <cassert>
 #include <filesystem>
 // #include <chronos>
-#include "../common_utilities.cpp"
+
 using namespace std;
 namespace fs = std::filesystem;
 
